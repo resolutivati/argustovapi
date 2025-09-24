@@ -17,12 +17,15 @@ def normalize_phone(raw):
 def call_vapi(phone, name="", meta=None):
     payload = {
         "to": phone,
-        "agent_id": VAPI_AGENT_ID,
+        "assistantId": VAPI_AGENT_ID,  # na Vapi é "assistantId"
         "language": "pt-BR",
-        "context": {"name": name, "metadata": meta or {}}
+        "metadata": meta or {}
     }
-    headers = {"Authorization": f"Bearer {VAPI_API_KEY}"}
-    r = requests.post(VAPI_API_URL, json=payload, headers=headers, timeout=20)
+    headers = {
+        "Authorization": f"Bearer {VAPI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    r = requests.post(f"{VAPI_API_URL}/call", json=payload, headers=headers, timeout=20)
     r.raise_for_status()
     return r.json()
 
@@ -45,3 +48,4 @@ def argus_webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
