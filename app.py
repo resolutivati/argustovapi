@@ -19,27 +19,32 @@ def normalize_phone(raw):
 def call_vapi(phone, name="", meta=None):
     if DRY_RUN == "1":
         print("[DRY_RUN] Chamaria VAPI com:", phone, name, meta)
-        return {"dry_run": True, "to": phone, "assistantId": VAPI_AGENT_ID}
+        return {"dry_run": True, "customer": {"number": f"+{phone}"}, "assistantId": VAPI_AGENT_ID}
 
     if not VAPI_API_KEY:
         raise RuntimeError("VAPI_API_KEY ausente")
     if not VAPI_AGENT_ID:
         raise RuntimeError("VAPI_AGENT_ID ausente")
+    phone_number_id = os.environ.get("VAPI_PHONE_NUMBER_ID")  # << NOVO: id do número na Vapi
+    if not phone_number_id:
+        raise RuntimeError("VAPI_PHONE_NUMBER_ID ausente (id do número emissor da Vapi)")
 
     payload = {
-        "to": phone,
         "assistantId": VAPI_AGENT_ID,
-        "language": "pt-BR",
+        "phoneNumberId": phone_number_id,
+        "customer": { "number": f"+{phone}" },  # phone já vem sem +, então prefixamos
+        # opcional: overrides por chamada
+        # "assistantOverrides": { "variableValues": {"nome": name} },
         "metadata": meta or {}
     }
     headers = {
         "Authorization": f"Bearer {VAPI_API_KEY}",
         "Content-Type": "application/json"
     }
-    url = f"{VAPI_API_URL}/call"  # se der 404, troque para /v1/calls
+    url = f"{VAPI_API_URL}/call"  # conforme docs de Outbound Calls
     print("[VAPI] POST", url, "payload=", payload)
     r = requests.post(url, json=payload, headers=headers, timeout=25)
-    print("[VAPI] status", r.status_code, "resp:", r.text[:200])
+    print("[VAPI] status", r.status_code, "resp:", r.text[:500])
     r.raise_for_status()
     return r.json()
 
@@ -89,3 +94,4 @@ def argus_webhook():
         return jsonify({"ok": False, "error": "server_error", "detail": str(e)}), 500
 
 # ⚠️ Não precisa app.run() aqui se usar Gunicorn no Render
+
