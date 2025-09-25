@@ -55,7 +55,43 @@ def home():
 @app.get("/health")
 def health():
     return {"status": "up"}, 200
+@app.post("/vapi/inbound")
 
+def vapi_inbound():
+    """
+    Endpoint chamado pela Vapi quando alguém liga para o seu número (+55 43 94040 4567).
+    Use para logar, enriquecer contexto e (se quiser) escolher dinamicamente o assistant.
+    """
+    try:
+        # (Opcional) validar um segredo se você configurar credencial na Vapi:
+        expected = os.environ.get("VAPI_INBOUND_SECRET")  # ex: "170808"
+        got = request.headers.get("X-Vapi-Secret")
+        if expected and got != expected:
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+        data = request.get_json(silent=True) or {}
+        print("[VAPI INBOUND] recebido:", data)
+
+        # Monte contexto opcional (ex.: quem ligou, id da ligação, etc)
+        caller = data.get("from") or data.get("customer", {}).get("number") or ""
+        metadata = {
+            "source": "inbound-number",
+            "caller": caller,
+            # você pode repassar dados do Argus/CRM aqui também
+        }
+
+        # Resposta mínima: informe o assistant que deve atender e metadados
+        return jsonify({
+            "assistantId": VAPI_AGENT_ID,  # usa o mesmo assistant do outbound
+            "metadata": metadata
+            # Se quiser overrides por chamada:
+            # "assistantOverrides": { "variableValues": {"nomeCliente": "..." } }
+        }), 200
+
+    except Exception as e:
+        print("[VAPI INBOUND][EXCEPTION]", e)
+        return jsonify({"ok": False, "error": "server_error", "detail": str(e)}), 500
+        
 @app.post("/argus/webhook")
 def argus_webhook():
     try:
@@ -94,4 +130,5 @@ def argus_webhook():
         return jsonify({"ok": False, "error": "server_error", "detail": str(e)}), 500
 
 # ⚠️ Não precisa app.run() aqui se usar Gunicorn no Render
+
 
